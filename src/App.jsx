@@ -79,6 +79,11 @@ function generateId() {
   return Math.random().toString(36).substr(2, 9);
 }
 
+const EMPTY_FORM = {
+  countrySearch: "", selectedCountry: null,
+  cityInput: "", cities: [], date: "", memo: "", rating: 5,
+};
+
 export default function TravelArchive() {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -86,10 +91,8 @@ export default function TravelArchive() {
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [filterContinent, setFilterContinent] = useState("전체");
   const [searchQuery, setSearchQuery] = useState("");
-  const [form, setForm] = useState({
-    countrySearch: "", selectedCountry: null,
-    cityInput: "", cities: [], date: "", memo: "", rating: 5,
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [editingId, setEditingId] = useState(null); // ← 수정 중인 여행 ID
 
   useEffect(() => {
     try {
@@ -133,9 +136,38 @@ export default function TravelArchive() {
 
   function saveTrip() {
     if (!form.selectedCountry || form.cities.length === 0 || !form.date) return;
-    persistTrips([{ id: generateId(), country: form.selectedCountry, cities: form.cities, date: form.date, memo: form.memo, rating: form.rating }, ...trips]);
-    setForm({ countrySearch: "", selectedCountry: null, cityInput: "", cities: [], date: "", memo: "", rating: 5 });
-    setView("list");
+
+    if (editingId) {
+      // 수정 모드: 기존 기록 업데이트
+      const updated = trips.map((t) =>
+        t.id === editingId
+          ? { ...t, country: form.selectedCountry, cities: form.cities, date: form.date, memo: form.memo, rating: form.rating }
+          : t
+      );
+      persistTrips(updated);
+      setSelectedTrip(updated.find((t) => t.id === editingId));
+      setEditingId(null);
+      setView("detail");
+    } else {
+      // 새 기록 추가
+      persistTrips([{ id: generateId(), country: form.selectedCountry, cities: form.cities, date: form.date, memo: form.memo, rating: form.rating }, ...trips]);
+      setView("list");
+    }
+    setForm(EMPTY_FORM);
+  }
+
+  function startEdit(trip) {
+    setEditingId(trip.id);
+    setForm({
+      countrySearch: "",
+      selectedCountry: trip.country,
+      cityInput: "",
+      cities: [...trip.cities],
+      date: trip.date,
+      memo: trip.memo,
+      rating: trip.rating,
+    });
+    setView("add");
   }
 
   function deleteTrip(id) {
@@ -182,6 +214,9 @@ export default function TravelArchive() {
             <div style={s.sectionLabel}>메모</div>
             <div style={s.memoBox}>{t.memo}</div>
           </div>}
+
+          {/* 수정 버튼 추가 */}
+          <button style={s.editBtn} onClick={() => startEdit(t)}>기록 수정</button>
           <button style={s.deleteBtn} onClick={() => deleteTrip(t.id)}>기록 삭제</button>
         </div>
       </div></div>
@@ -190,8 +225,13 @@ export default function TravelArchive() {
 
   if (view === "add") return (
     <div style={s.app}><div style={s.container}>
-      <button style={s.backBtn} onClick={() => setView("list")}>← 뒤로</button>
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: "#0F172A", marginBottom: 24, marginTop: 0 }}>새 여행 기록</h2>
+      <button style={s.backBtn} onClick={() => {
+        setView(editingId ? "detail" : "list");
+        if (editingId) { setEditingId(null); setForm(EMPTY_FORM); }
+      }}>← 뒤로</button>
+      <h2 style={{ fontSize: 20, fontWeight: 700, color: "#0F172A", marginBottom: 24, marginTop: 0 }}>
+        {editingId ? "여행 기록 수정" : "새 여행 기록"}
+      </h2>
 
       <div style={s.formGroup}>
         <label style={s.label}>나라 *</label>
@@ -258,7 +298,7 @@ export default function TravelArchive() {
       </div>
 
       <button style={{ ...s.saveBtn, opacity: form.selectedCountry && form.cities.length > 0 && form.date ? 1 : 0.4 }} onClick={saveTrip}>
-        기록 저장
+        {editingId ? "수정 완료" : "기록 저장"}
       </button>
     </div></div>
   );
@@ -272,7 +312,7 @@ export default function TravelArchive() {
             {trips.length}개국 · {trips.reduce((sum, t) => sum + t.cities.length, 0)}개 도시
           </div>
         </div>
-        <button style={s.addBtn} onClick={() => setView("add")}>+ 추가</button>
+        <button style={s.addBtn} onClick={() => { setEditingId(null); setForm(EMPTY_FORM); setView("add"); }}>+ 추가</button>
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
@@ -341,7 +381,8 @@ const s = {
   sectionLabel: { fontSize: 12, fontWeight: 600, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 },
   cityTagLarge: { background: "#F1F5F9", color: "#334155", borderRadius: 10, padding: "6px 12px", fontSize: 14, fontWeight: 500 },
   memoBox: { background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 10, padding: "12px 14px", fontSize: 14, color: "#334155", lineHeight: 1.6 },
-  deleteBtn: { width: "100%", background: "transparent", color: "#EF4444", border: "1px solid #FCA5A5", borderRadius: 12, padding: "12px", fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 8 },
+  editBtn: { width: "100%", background: "#0F172A", color: "#fff", border: "none", borderRadius: 12, padding: "12px", fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 8, marginBottom: 8 },
+  deleteBtn: { width: "100%", background: "transparent", color: "#EF4444", border: "1px solid #FCA5A5", borderRadius: 12, padding: "12px", fontSize: 14, fontWeight: 600, cursor: "pointer" },
   formGroup: { marginBottom: 20 },
   label: { display: "block", fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 8 },
   input: { width: "100%", padding: "10px 14px", border: "1px solid #E2E8F0", borderRadius: 10, fontSize: 14, background: "#fff", outline: "none", boxSizing: "border-box", color: "#0F172A" },
