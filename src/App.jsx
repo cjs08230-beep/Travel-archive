@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 const COUNTRIES_DATA = [
   { code: "KR", name: "대한민국", flag: "🇰🇷", continent: "아시아" },
@@ -501,7 +502,9 @@ export default function TravelArchive() {
           })}
         </div>
       )}
-    </div></div>
+    </div>
+    <SpeedInsights />
+    </div>
   );
 }
 
